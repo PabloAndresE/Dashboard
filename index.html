@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+  <title>Proyección de Reservas por Obligaciones Patronales</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-piechart-outlabels"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root {
+      --azul-oscuro: #rgba(17, 22, 70, 0.90);
+      --azul-medio: #3A4A9F;
+      --azul-claro: #EAF1FF;
+      --gris-fondo: #F5F6FA;
+    }
+    body {
+      background-color: var(--gris-fondo);
+      font-family: 'Nunito', sans-serif;
+    }
+    .card {
+      background-color: white;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    }
+    .titulo-seccion {
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: rgba(17, 22, 70, 0.90);
+    }
+    .layout {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+    }
+    .chart-wrapper {
+      width: 60%;
+      height: 320px;
+    }
+    .leyenda {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      font-size: 0.85rem;
+      color: #1D2540;
+    }
+    .leyenda-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .leyenda-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .color-jub { background-color: #1D2540; }
+    .color-des { background-color: #3A4A9F; }
+    .kpi-titulo { color: rgba(17, 22, 70, 0.65); font-size: small; }
+    .kpi-valor { font-size: x-large; font-weight: bold; color: rgba(17, 22, 70, 0.90); }
+    select {
+      background-color: white;
+      color: var(--azul-oscuro);
+      border: 1px solid #ccc;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1rem;
+    }
+    button.filtro {
+      background-color: var(--azul-claro);
+      color: var(--azul-medio);
+      padding: 0.4rem 1rem;
+      border-radius: 9999px;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+    .dashboard {
+      padding: 200px;
+    }
+    .color-10 { background-color: #60a5fa; }
+    .color-20 { background-color: #f97316; }
+    .color-25 { background-color: #c4b5fd; }
+    .color-mas { background-color: #1D2540; }
+    .datos-personas {
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: #1D2540;
+    }
+  </style>
+</head>
+<body class="p-6">
+
+  <div class="dashboard">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-regular text-[#1D2540]" style="font-weight: 600; color:rgba(17, 22, 70, 0.90); font-size: 2rem;">Proyección de Reservas por Obligaciones Patronales</h1>
+      <span class="datos-personas">DATOS: 921 Personas</span>
+    </div>
+
+
+  <div class="mb-4">
+    <button class="filtro">Filtros</button>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" style="width: 50%;">
+    <select>
+      <option>2024</option>
+    </select>
+    <select>
+      <option>Todas</option>
+    </select>
+    <select>
+      <option>Todas</option>
+    </select>
+    <select>
+      <option>Todas</option>
+    </select>
+  </div>
+
+     <!-- Primera fila con dos columnas -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="flex flex-col gap-6">
+        <!-- KPIs agrupados en un solo card -->
+      <div class="card">
+        <h2 class="titulo-seccion mb-2">Reserva Total</h2>
+        <div class="grid grid-cols-3 text-center">
+          
+          <div>
+            
+            <h2 id="reservaJubilacion" class="kpi-valor">$2,52 mill.</h2>
+            <p class="kpi-titulo">Jubilación</p>
+          </div>
+          <div>
+            
+            <h2 id="reservaDesahucio" class="kpi-valor">$2,52 mill.</h2>
+            <p class="kpi-titulo">Desahucio</p>
+          </div><div>
+            <h2 id="reservaTotal" class="kpi-valor">$2,52 mill.</h2>
+            <p class="kpi-titulo">Total</p>
+          </div>
+
+
+        </div>
+      </div>
+        <!-- Gráfico de Evolución -->
+      <div class="card" style="height: 100%;">
+        <h2 class="titulo-seccion mb-2">Evolución de Reserva por Tipo de Beneficio</h2>
+        <canvas id="barChart"></canvas>
+        <div class="flex justify-center gap-4 mt-4">
+          <button class="px-4 py-1 border border-[#3A4A9F] text-[#3A4A9F] rounded-full text-sm">RESERVA ANUAL</button>
+          <button class="px-4 py-1 border border-[#3A4A9F] text-[#3A4A9F] rounded-full text-sm">VARIACIÓN ANUAL</button>
+        </div>
+      </div>
+      </div>
+      <!-- Gráfico de Reserva por Persona -->
+      <div class="card" style="height: calc(100% - 0px); display: flex; flex-direction: column; justify-content: space-between;">
+          <h2 class="titulo-seccion mb-2">Reserva por Persona</h2>
+          <canvas id="horizontalBarChart" style="flex: 1;"></canvas>
+
+      </div>
+    </div>
+
+
+      <!-- Segunda fila con dos columnas -->
+      <div class="grid grid-cols-2 gap-4">
+      <!-- Gráfico de Donut -->
+
+      <div class="card">
+    <h2 class="titulo-seccion">Reserva Total por Beneficio (JP+BD)</h2>
+    <div class="layout">
+      <div class="chart-wrapper">
+        <canvas id="pieChart"></canvas>
+      </div>
+      <div class="leyenda">
+        <div class="leyenda-item">
+          <div class="leyenda-color color-jub"></div> JUBILACIÓN
+        </div>
+        <div class="leyenda-item">
+          <div class="leyenda-color color-des"></div> DESAHUCIO
+        </div>
+      </div>
+    </div>
+  </div>
+      <!-- Gráfico de Tiempo de Servicio -->
+      <div class="card">
+    <h2 class="titulo-seccion">Reserva Total por Tiempo de Servicio</h2>
+    <div class="layout">
+      <div class="chart-wrapper">
+        <canvas id="tiempoChart"></canvas>
+      </div>
+
+      <div class="leyenda">
+        <div class="leyenda-item">
+          <div class="leyenda-color color-10"></div> Menos de 10 años
+        </div>
+        <div class="leyenda-item">
+          <div class="leyenda-color color-20"></div> Entre 10 y menos de 20
+        </div>
+        <div class="leyenda-item">
+          <div class="leyenda-color color-25"></div> Entre 20 y menos de 25
+        </div>
+        <div class="leyenda-item">
+          <div class="leyenda-color color-mas"></div> 25 años o más
+        </div>
+      </div>
+    </div>
+  </div>
+    </div>
+  
+
+<script>
+
+    function abreviarNumero(valor) {
+      if (valor >= 1e6) {
+          return `$${(valor / 1e6).toFixed(2)} mill`;
+      } else if (valor >= 1e3) {
+          return `$${(valor / 1e3).toFixed(2)}K`;
+      } else {
+          return `$${valor.toFixed(2)}`;
+      }
+  }
+
+
+    function parseMoney(m) {
+      if (!m || typeof m !== 'string') return 0;
+      return parseFloat(m.replace('$', '').replace(/\./g, '').replace(',', '.')) || 0;
+    }
+
+    window.onload = () => {
+      const selectYear = document.querySelector('select');
+      selectYear.addEventListener('change', () => {
+        cargarReservaPorPersona(selectYear.value);
+      });
+      cargarEvolucion();
+      cargarPieEstatus();
+      cargarTiempoServicio();
+      cargarReservaPorPersona();
+    };
+
+    function cargarEvolucion() {
+  Papa.parse("evolucion.csv", {
+    download: true,
+    header: true,
+    complete: function(result) {
+      const agrupadoPorAnio = {};
+
+      result.data.forEach(row => {
+        const anio = row["AÑO"];
+        const beneficio = row["BENEFICIO"];
+        const reserva = parseMoney(row["Suma de RESERVA"]);
+
+        if (!anio || !beneficio || isNaN(reserva)) return;
+
+        if (!agrupadoPorAnio[anio]) {
+          agrupadoPorAnio[anio] = { "JUBILACIÓN": 0, "DESAHUCIO": 0 };
+        }
+
+        if (beneficio === "JUBILACIÓN" || beneficio === "DESAHUCIO") {
+          agrupadoPorAnio[anio][beneficio] += reserva;
+        }
+      });
+
+      const añosOrdenados = Object.keys(agrupadoPorAnio).sort();
+      const jubilacion = añosOrdenados.map(anio => agrupadoPorAnio[anio]["JUBILACIÓN"] || 0);
+      const desahucio = añosOrdenados.map(anio => agrupadoPorAnio[anio]["DESAHUCIO"] || 0);
+      const total = jubilacion.map((v, i) => v + desahucio[i]);
+
+      const ctx = document.getElementById("barChart").getContext("2d");
+      if (window.barChartInstance) window.barChartInstance.destroy();
+
+      window.barChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: añosOrdenados,
+          datasets: [
+            {
+              label: "JUBILACIÓN",
+              data: jubilacion,
+              backgroundColor: "#1D2540",
+              borderRadius: 4,
+              barThickness: 20
+            },
+            {
+              label: "DESAHUCIO",
+              data: desahucio,
+              backgroundColor: "#3A4A9F",
+              borderRadius: 4,
+              barThickness: 20
+            },
+            {
+              label: "RESERVA TOTAL",
+              data: total,
+              type: 'line',
+              fill: false,
+              borderColor: "#f97316",
+              backgroundColor: "#f97316",
+              pointRadius: 4,
+              pointHoverRadius: 5,
+              datalabels: {
+                align: 'top',
+                anchor: 'end',
+                color: '#434663',
+                font: {
+                  weight: 'bold'
+                },
+                formatter: function(value) {
+                  return abreviarNumero(value);
+                }
+              }
+            }
+
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: 20 },
+          tooltips: {
+            callbacks: {
+              label: function(tooltipItem, data) {
+                const label = data.datasets[tooltipItem.datasetIndex].label || '';
+                const value = tooltipItem.yLabel;
+                return `${label}: ${abreviarNumero(value)}`;
+              }
+            }
+          },
+          legend: {
+            labels: { fontColor: "#434663" }
+          },
+          scales: {
+            yAxes: [{
+              ticks: {
+                fontColor: "#1D2540",
+                callback: value => abreviarNumero(value)
+              },
+              gridLines: { drawBorder: false }
+            }],
+            xAxes: [{
+              ticks: { fontColor: "#1D2540" },
+              gridLines: { display: false }
+            }]
+          },
+          plugins: {
+            datalabels: {
+              display: function(context) {
+                // Solo mostrar para la línea
+                return context.dataset.type === 'line';
+              }
+            }
+          }
+        }
+      });
+    }
+  });
+}
+
+
+    function cargarReservaPorPersona() {
+  Papa.parse("persona.csv", {
+    download: true,
+    header: true,
+    complete: function(result) {
+      const personaMap = {};
+
+      result.data.forEach(row => {
+        const nombre = row["NOMBRE"];
+        const beneficio = row["BENEFICIO"];
+        const valor = parseMoney(row["Suma de RESERVA"]);
+
+        if (!nombre || !beneficio || isNaN(valor)) return;
+
+        if (!personaMap[nombre]) {
+          personaMap[nombre] = { JUBILACIÓN: 0, DESAHUCIO: 0 };
+        }
+
+        if (beneficio === "JUBILACIÓN" || beneficio === "DESAHUCIO") {
+          personaMap[nombre][beneficio] += valor;
+        }
+      });
+
+      const lista = Object.entries(personaMap).map(([nombre, beneficios]) => ({
+        nombre,
+        jubilacion: beneficios.JUBILACIÓN,
+        desahucio: beneficios.DESAHUCIO,
+        total: beneficios.JUBILACIÓN + beneficios.DESAHUCIO
+      }));
+
+      const top = lista.sort((a, b) => b.total - a.total).slice(0, 20);
+
+      const labels = top.map(p => p.nombre);
+      const dataJub = top.map(p => p.jubilacion);
+      const dataDes = top.map(p => p.desahucio);
+      const dataTot = top.map(p => p.total);
+
+      const ctx = document.getElementById("horizontalBarChart").getContext("2d");
+
+      if (window.horizontalBarChartInstance) window.horizontalBarChartInstance.destroy();
+
+      window.horizontalBarChartInstance = new Chart(ctx, {
+        type: 'horizontalBar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "JUBILACIÓN",
+              data: dataJub,
+              backgroundColor: "#1D2540"
+            },
+            {
+              label: "DESAHUCIO",
+              data: dataDes,
+              backgroundColor: "#3A4A9F"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            xAxes: [{
+              stacked: true,
+              ticks: {
+                callback: value => abreviarNumero(value),
+                fontColor: "#1D2540"
+              }
+            }],
+            yAxes: [{
+              stacked: true,
+              ticks: {
+                fontColor: "#1D2540"
+              }
+            }]
+          },
+          legend: {
+            labels: {
+              fontColor: "#1D2540"
+            }
+          },
+          plugins: {
+            datalabels: {
+              display: function(ctx) {
+                return ctx.datasetIndex === 1;
+              },
+              anchor: 'end',
+              align: 'end',
+              color: '#1D2540',
+              font: { weight: 'bold' },
+              formatter: function(value, ctx) {
+                const i = ctx.dataIndex;
+                return abreviarNumero(dataTot[i]);
+              }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+  });
+}
+
+    
+    function cargarPieEstatus() {
+  Papa.parse("estatus.csv", {
+    download: true,
+    header: true,
+    complete: function(result) {
+      const beneficioMap = {};
+      let total = 0;
+
+      result.data.forEach(r => {
+        if (!r["BENEFICIO"] || !r["Suma de RESERVA"]) return;
+        const b = r["BENEFICIO"];
+        const val = parseMoney(r["Suma de RESERVA"]);
+        beneficioMap[b] = (beneficioMap[b] || 0) + val;
+        total += val;
+      });
+
+      
+
+      const labels = Object.keys(beneficioMap);
+      const values = Object.values(beneficioMap);
+      const backgroundColors = ['#1D2540', '#3A4A9F']; // Asegúrate de que coincida con los beneficios
+
+      document.getElementById("reservaTotal").textContent = abreviarNumero(total);
+      document.getElementById("reservaJubilacion").textContent = abreviarNumero(beneficioMap["JUBILACIÓN"] || 0);
+      document.getElementById("reservaDesahucio").textContent = abreviarNumero(beneficioMap["DESAHUCIO"] || 0);
+
+      const ctx = document.getElementById('pieChart').getContext('2d');
+
+      if (window.pieChartInstance) window.pieChartInstance.destroy();
+
+      window.pieChartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['JUBILACIÓN', 'DESAHUCIO'],
+        datasets: [{
+          data: values,
+          backgroundColor: ['#1D2540', '#3A4A9F'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutoutPercentage: 70,
+        layout: {
+          padding: {
+            top: 40,
+            bottom: 40,
+            left: 40,
+            right: 40
+          }
+        },
+        legend: { display: false },
+        plugins: {
+          datalabels: {
+            display: false
+          },
+          outlabels: {
+            text: function(ctx) {
+              const value = ctx.dataset.data[ctx.dataIndex];
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const percent = ((value / total) * 100).toFixed(1);
+              return `${abreviarNumero(value)} (${percent}%)`;
+            },
+            color: '#1D2540',
+            backgroundColor: null, // 👈 sin fondo
+            stretch: 25,
+            lineColor: '#1D2540',
+            lineWidth: 1,
+            font: {
+              resizable: true,
+              minSize: 12,
+              maxSize: 14
+            },
+            padding: 8
+          }
+        }
+      }
+    });
+  
+    }
+  });
+}
+
+    
+  function cargarTiempoServicio() {
+  Papa.parse("tiempo.csv", {
+    download: true,
+    header: true,
+    complete: function(result) {
+      const tiempoMap = {};
+      let total = 0;
+
+      result.data.forEach(r => {
+        if (!r["TIEMPO DE SERVICIO"] || !r["RESERVA"]) return;
+        const key = r["TIEMPO DE SERVICIO"];
+        const val = parseMoney(r["RESERVA"]);
+        tiempoMap[key] = (tiempoMap[key] || 0) + val;
+        total += val;
+      });
+
+      const labels = Object.keys(tiempoMap);
+      const values = Object.values(tiempoMap);
+      const backgroundColors = ['#60a5fa', '#f97316', '#c4b5fd', '#1D2540'];
+
+      const ctx = document.getElementById("tiempoChart").getContext("2d");
+
+      if (window.tiempoChartInstance) window.tiempoChartInstance.destroy();
+
+      window.tiempoChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: backgroundColors,
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutoutPercentage: 0,
+          layout: {
+            padding: { top: 40, bottom: 40, left: 40, right: 40 }
+          },
+          legend: { display: false },
+          plugins: {
+            datalabels: {
+              display: false
+            },
+            outlabels: {
+              text: function(ctx) {
+                const value = ctx.dataset.data[ctx.dataIndex];
+                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                const percent = ((value / total) * 100).toFixed(1);
+                return `${abreviarNumero(value)} (${percent}%)`;
+              },
+              color: '#1D2540',
+              backgroundColor: null,
+              stretch: 25,
+              lineColor: '#1D2540',
+              lineWidth: 1,
+              font: {
+                resizable: true,
+                minSize: 12,
+                maxSize: 14
+              },
+              padding: 8
+            }
+          }
+        }
+      });
+    }
+  });
+}
+
+  </script>
+  </body>
+</html>
